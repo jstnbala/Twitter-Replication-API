@@ -1,25 +1,34 @@
+// ignore_for_file: avoid_print, prefer_interpolation_to_compose_strings
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+//import 'package:http/http.dart';
 import '../services/post_service.dart';
-import '../models/post_model.dart';
 import '../utils/constants.dart';
-
+import '../utils/widgets.dart';
+//import 'package:image_network/image_network.dart';
+ 
 class PostScreen extends StatefulWidget {
-  const PostScreen({Key? key}) : super(key: key);
-
+  const PostScreen({super.key});
+ 
   @override
   State<PostScreen> createState() => _PostScreenState();
 }
-
+ 
 class _PostScreenState extends State<PostScreen> {
-  late Future<List<Post>> posts;
-
+  List posts = [];
+ 
+  Future<List> loadAllProducts() async {
+    PostService postService = PostService();
+    posts = await postService.fetchAllPosts();
+    return posts;
+  }
+ 
   @override
   void initState() {
     super.initState();
-    posts = PostService().fetchAllPosts();
   }
-
+ 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -31,31 +40,28 @@ class _PostScreenState extends State<PostScreen> {
           children: [
             SizedBox(
               height: ScreenUtil().setHeight(630),
-              child: FutureBuilder<List<Post>>(
-                future: posts,
-                builder: (BuildContext context, AsyncSnapshot<List<Post>> snapshot) {
+              child: FutureBuilder(
+                future: loadAllProducts(),
+                builder: (BuildContext context, AsyncSnapshot snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return Container(
                       color: TWITTER_BLACK,
-                      child: const Center(child: CircularProgressIndicator()),
+                      child: Center(child: genericLoading()),
                     );
                   } else if (snapshot.hasError) {
-                    debugPrint("Error loading posts: ${snapshot.error}");
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (ModalRoute.of(context)?.settings.name != '/splash') {
-                        Navigator.pushReplacementNamed(context, '/splash');
-                      }
-                    });
+                    print("hasError: ${snapshot.error}");
+                    Navigator.popAndPushNamed(context, '/splash');
                     return Container(
                       color: TWITTER_WHITE,
-                      child: const Center(child: CircularProgressIndicator()),
+                      child: Center(child: genericLoading()),
                     );
-                  } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                  } else if (snapshot.hasData && posts.isNotEmpty) {
                     return ListView.builder(
                       shrinkWrap: true,
-                      itemCount: snapshot.data!.length,
+                     // physics: const NeverScrollableScrollPhysics(), // Disable internal scrolling of ListView
+                      itemCount: posts.length,
                       itemBuilder: (context, index) {
-                        final post = snapshot.data![index];
+                        var post = posts[index];
                         return Container(
                           padding: EdgeInsets.symmetric(
                             horizontal: ScreenUtil().setWidth(20),
@@ -65,131 +71,117 @@ class _PostScreenState extends State<PostScreen> {
                             border: Border(
                               bottom: BorderSide(
                                 color: TWITTER_GREY,
-                                width: 8.5,
+                                width: 0.5,
                               ),
                             ),
                           ),
-                          child: Column(
+                          child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(
-                                    Icons.account_circle_rounded,
-                                    color: TWITTER_GREY,
-                                    size: 40,
-                                  ),
-                                  SizedBox(width: ScreenUtil().setWidth(10)),
-                                  Image.network(
-                                    post.image,
-                                    height: ScreenUtil().setHeight(50),
-                                    width: ScreenUtil().setWidth(50),
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return const Icon(Icons.error);
-                                    },
-                                  ),
-                                  SizedBox(width: ScreenUtil().setWidth(10)),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                              Icon(
+                                Icons.account_circle_rounded,
+                                color: TWITTER_GREY,
+                                size: ScreenUtil().setSp(40),
+                              ),
+                              SizedBox(width: ScreenUtil().setWidth(10)),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                post.author,
-                                                style: TextStyle(
-                                                  fontSize: ScreenUtil().setSp(20),
-                                                  color: TWITTER_WHITE,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
+                                        Expanded(
+                                          child: Text(
+                                            post.author,
+                                            style: TextStyle(
+                                              fontSize: ScreenUtil().setSp(20),
+                                              color: TWITTER_WHITE,
+                                              fontWeight: FontWeight.bold,
                                             ),
-                                            SizedBox(width: ScreenUtil().setWidth(5)),
-                                            Text(
-                                              post.getFormattedTimestamp(),
-                                              style: TextStyle(
-                                                fontSize: ScreenUtil().setSp(15),
-                                                color: TWITTER_GREY,
-                                              ),
-                                            ),
-                                          ],
+                                          ),
                                         ),
-                                        SizedBox(height: ScreenUtil().setHeight(5)),
+                                        SizedBox(width: ScreenUtil().setWidth(10)),
                                         Text(
-                                          post.title,
+                                          post.getFormattedTimestamp(),
                                           style: TextStyle(
-                                            fontSize: ScreenUtil().setSp(17.5),
+                                            fontSize: ScreenUtil().setSp(12),
                                             color: TWITTER_WHITE,
                                             fontWeight: FontWeight.bold,
                                           ),
-                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        SizedBox(height: ScreenUtil().setHeight(5)),
+                                      ],
+                                    ),
+                                    SizedBox(height: ScreenUtil().setHeight(5)),
+                                    Text(
+                                      post.title,
+                                      style: TextStyle(
+                                        fontSize: ScreenUtil().setSp(17.5),
+                                        color: TWITTER_WHITE,
+                                      ),
+                                    ),
+                                    SizedBox(height: ScreenUtil().setHeight(5)),
+                                    Text(
+                                      post.content,
+                                      style: TextStyle(
+                                        fontSize: ScreenUtil().setSp(15),
+                                        color: TWITTER_WHITE,
+                                      ),
+                                    ),
+                                    SizedBox(height: ScreenUtil().setHeight(5)),
+                                    Row(
+                                      children: [
+                                        IconButton(
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          onPressed: () {
+                                            print('Comments: ' +
+                                                post.comments.length.toString());
+                                            Navigator.pushNamed(
+                                              context,
+                                              '/comment_screen',
+                                              arguments: {
+                                                'post': post,
+                                              },
+                                            );
+                                          },
+                                          icon: const Icon(
+                                            Icons.messenger_outline_outlined,
+                                            color: TWITTER_WHITE,
+                                          ),
+                                        ),
+                                        SizedBox(width: ScreenUtil().setWidth(5)),
                                         Text(
-                                          post.content,
+                                          post.comments.length.toString(),
                                           style: TextStyle(
                                             fontSize: ScreenUtil().setSp(15),
                                             color: TWITTER_WHITE,
                                           ),
-                                          // Ensures the text wraps and expands
-                                          maxLines: null,
-                                          overflow: TextOverflow.visible,
                                         ),
-                                        SizedBox(height: ScreenUtil().setHeight(5)),
-                                        Row(
-                                          children: [
-                                            IconButton(
-                                              padding: EdgeInsets.zero,
-                                              constraints: const BoxConstraints(),
-                                              onPressed: () {
-                                                Navigator.pushNamed(
-                                                  context,
-                                                  '/comment_screen',
-                                                  arguments: {'post': post},
-                                                );
-                                              },
-                                              icon: const Icon(
-                                                Icons.messenger_outline_outlined,
-                                                color: TWITTER_WHITE,
-                                              ),
-                                            ),
-                                            SizedBox(width: ScreenUtil().setWidth(5)),
-                                            Text(
-                                              post.commentsCount.toString(),
-                                              style: TextStyle(
-                                                fontSize: ScreenUtil().setSp(15),
-                                                color: TWITTER_WHITE,
-                                              ),
-                                            ),
-                                            SizedBox(width: ScreenUtil().setWidth(100)),
-                                            IconButton(
-                                              padding: EdgeInsets.zero,
-                                              constraints: const BoxConstraints(),
-                                              onPressed: () {
-                                                // Handle like action
-                                              },
-                                              icon: const Icon(
-                                                Icons.thumb_up_alt_outlined,
-                                                color: TWITTER_WHITE,
-                                              ),
-                                            ),
-                                            SizedBox(width: ScreenUtil().setWidth(5)),
-                                            Text(
-                                              post.likes.toString(),
-                                              style: TextStyle(
-                                                fontSize: ScreenUtil().setSp(15),
-                                                color: TWITTER_WHITE,
-                                              ),
-                                            ),
-                                          ],
+                                        SizedBox(width: ScreenUtil().setWidth(15)),
+                                        IconButton(
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          onPressed: () {
+                                            print('Likes: ' + post.likes.toString());
+                                          },
+                                          icon: const Icon(
+                                            Icons.thumb_up_alt_outlined,
+                                            color: TWITTER_WHITE,
+                                          ),
+                                        ),
+                                        SizedBox(width: ScreenUtil().setWidth(5)),
+                                        Text(
+                                          post.likes.toString(),
+                                          style: TextStyle(
+                                            fontSize: ScreenUtil().setSp(15),
+                                            color: TWITTER_WHITE,
+                                          ),
                                         ),
                                       ],
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ],
                           ),
@@ -197,15 +189,17 @@ class _PostScreenState extends State<PostScreen> {
                       },
                     );
                   } else {
+                    print("No data available");
+                    Navigator.popAndPushNamed(context, '/splash');
                     return Container(
                       color: TWITTER_WHITE,
-                      child: const Center(child: CircularProgressIndicator()),
+                      child: Center(child: genericLoading()),
                     );
                   }
                 },
               ),
             ),
-            SizedBox(height: ScreenUtil().setHeight(48)),
+            SizedBox(height: ScreenUtil().setHeight(40)),
           ],
         ),
       ),
